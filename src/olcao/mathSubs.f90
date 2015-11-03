@@ -181,6 +181,37 @@ function stepFunction (x,stepFnRange)
    endif
 end function stepFunction
 
+!This next function is the calculation of the derivative of the fermi-dirac
+!function at each energypoint.
+!- e^[E-occ/kT]/kT[e^[E-occ/kT]+1]^2
+
+
+function FermiDerivative (energyPoint, occupiedEnergy, thermalSigma)
+   use O_Kinds
+   implicit none
+
+   ! Define function return 
+   real (kind=double) :: FermiDerivative
+
+   ! Define passed parameters  
+   real (kind=double), intent(in) :: energyPoint 
+   real (kind=double), intent(in) :: occupiedEnergy
+   real (kind=double), intent(in) :: thermalSigma
+   ! Define local variables
+   !real (kind=double) :: boltz = 8.82E-12
+
+   FermiDerivative = -(exp((energyPoint-occupiedEnergy)/ &
+                                & (thermalSigma))/ &
+                                & ((thermalSigma)* &
+                                &(exp((energyPoint-occupiedEnergy)/(thermalSigma))+1.0_double)**2.0_double))
+                       
+write (20,*) "Nummerator: ", exp((energyPoint-occupiedEnergy)/thermalSigma)
+write (20,*) "Denom: ",1.0_double/((exp((energyPoint-occupiedEnergy)/thermalSigma))+1.0_double)**2.0_double
+!write (20,*) "energyPoint: ", energyPoint
+!write (20,*) "occupiedEnergy is: ", occupiedEnergy
+!write (20,*) "thermalSigma: ", thermalSigma
+call flush(20)
+end function FermiDerivative
 
 subroutine crossProduct (answer, vector1, vector2)
 

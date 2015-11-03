@@ -57,8 +57,7 @@ module O_OptcTransitions
 #endif
 
    real (kind=double), allocatable, dimension (:,:) :: sigmaEAccumulator
-!  real (kind=double), allocatable, dimension (:) :: FermiDerivative ! This is the 
-        !Partial derivate of the FermiDirac Function with respect to energy
+
 contains
 
 subroutine getEnergyStatistics(inDat,clp)
@@ -705,7 +704,7 @@ subroutine computeTransitions(inDat,clp)
             if (clp%stateSet /= 2) then  ! Not doing a Sigma(E) calculation.
                call computePairs (i,0,h,inDat,clp)
             else
-               call computeSigmaE (i,0,h,inDat,clp)
+               call computeSigmaE (i,0,h,inDat)
             endif
 
          else
@@ -725,7 +724,7 @@ subroutine computeTransitions(inDat,clp)
                if (clp%stateSet /= 2) then  ! Not doing a Sigma(E) calc.
                   call computePairs (i,j,h,inDat,clp)
                else
-                  call computeSigmaE (i,j,h,inDat,clp)
+                  call computeSigmaE (i,j,h,inDat)
                endif
             enddo
 
@@ -983,8 +982,7 @@ subroutine computePairs (currentKPoint,xyzComponents,spinDirection,inDat,clp)
          !   near the beginning of the population subroutine.
          orderedIndex = i + inDat%numStates*(spinDirection-1) + &
                & inDat%numStates*spin*(currentKPoint-1)
-write (20,*) "orderedIndexI: ",orderedIndex
-call flush (20)
+
          ! Use the normal state factor for non-PACS calculations. For PACS
          !   calculations the initStateFactor is always 1 even though the
          !   initial core state(s) will have an electron missing.
@@ -1001,14 +999,12 @@ call flush (20)
          orderedIndex = j + inDat%numStates*(spinDirection-1) + &
                & inDat%numStates*spin*(currentKPoint-1)
 
-write (20,*) "orderedIndexJ: ",orderedIndex
-call flush (20)
          finStateFactor = 1.0_double - electronPopulation(orderedIndex) / &
                & (kPointWeight(currentKPoint)/real(spin,double))
 !initStateFactor = 1.0_double
 !finStateFactor = 1.0_double
-write (20,*) "i,j,stateFactors",i,j,initStateFactor,finStateFactor
-call flush (20)
+!write (20,*) "i,j,stateFactors",i,j,initStateFactor,finStateFactor
+!call flush (20)
 
 #ifndef GAMMA
 
@@ -1088,7 +1084,7 @@ end subroutine computePairs
 
 
 
-subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection,inDat,clp)
+subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection,inDat)
 
    ! Import the necessary data modules.
    use O_Kinds
@@ -1098,11 +1094,8 @@ subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection,inDat,clp)
    use O_Input
    use O_Lattice
    use O_Potential ! For spin
-   use O_Populate !new
-   use O_CommandLine
    use O_AtomicSites
    use O_SecularEquation
-   use O_MathSubs
 
    ! Make sure that there are not accidental variable declarations.
    implicit none
@@ -1112,10 +1105,9 @@ subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection,inDat,clp)
    integer :: xyzComponents
    integer :: spinDirection
    type(inputData) :: inDat
-   type(commandLineParameters), intent(inout) :: clp !New from O_commandLine 
 
    ! Define local variables.
-   integer :: i,j,k,p,q ! Loop index variables
+   integer :: i,j,k ! Loop index variables
    integer :: initComponent
    integer :: finComponent
    integer :: firstInit
@@ -1126,21 +1118,13 @@ subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection,inDat,clp)
    integer :: numFinEnergyStates
    integer :: numTotalEnergyStates
    integer :: finalStateIndex
-   integer :: orderedIndex
    integer :: initialStateIndex
    integer :: numEnergyPoints
    real (kind=double) :: alphaFactor
-   real (kind=double) :: initStateFactor
-   real (kind=double) :: finStateFactor
-   real (kind=double) :: sumval !!!our variable
    real (kind=double) :: kPointFactor
-   real (kind=double) :: boltz
-   real (kind=double) :: ThermalTemp
    real (kind=double) :: sigmaSqrt2Pi
    real (kind=double) :: conversionFactor
    real (kind=double) :: totalSigma
-   real (kind=double) :: DcCond
-  ! real (kind=double) :: FermiDirac
    real    (kind=double), allocatable, dimension (:,:,:) :: transitionProb
 #ifndef GAMMA
    complex (kind=double), allocatable, dimension (:,:,:) :: conjWaveMomSum
@@ -1149,9 +1133,6 @@ subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection,inDat,clp)
    real    (kind=double), allocatable, dimension (:,:,:) :: conjWaveMomSumGamma
    real    (kind=double)                                 :: valeValeXMomGamma
 #endif
-
-   real (kind=double), allocatable, dimension(:) :: fermiIntgPoints
-   real (kind=double) :: tempFermi
 
    ! Compute the number of energy points to evaluate.
    numEnergyPoints = int((inDat%maxTransEnSIGE * 2) / inDat%deltaSIGE + 1)
@@ -1176,21 +1157,12 @@ subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection,inDat,clp)
    if (.not. allocated(sigmaEAccumulator)) then
       allocate (sigmaEAccumulator (numEnergyPoints,dim3))
       sigmaEAccumulator (:,:) = 0.0_double
-      DcCond = 0.0_double
-!      allocate (FermiDerivative (numEnergyPoints))
-!      FermiDerivative(:) = 0.0_double
+
       allocate (energyScale (numEnergyPoints))
       do i = 1, numEnergyPoints
          energyScale(i) = -inDat%maxTransEnSIGE + inDat%deltaSIGE * (i-1)
       enddo
    endif
-
-   allocate(fermiIntgPoints(((occupiedEnergy+inDat%maxTransEnSIGE)-(occupiedEnergy-inDat%maxTransEnSIGE))/inDat%deltaSIGE))
-   do i=1,size(fermiIntgPoints)
-      fermiIntgPoints(i) = (occupiedEnergy-inDat%maxTransEnSIGE) + inDat%deltaSIGE * (i-1)
-write (20,*) "fermiIntgPoints: ", fermiIntgPoints(i)
-call flush(20)
-   enddo
 
    ! Determine the range of components (xyz) that should be considered.
    if (xyzComponents == 0) then
@@ -1292,37 +1264,6 @@ call flush(20)
          !   i>=j cases.
          if (i >= j) cycle
 
-         orderedIndex = i + inDat%numStates*(spinDirection-1) + &
-               & inDat%numStates*spin*(currentKPoint-1)
-
-write (20,*) "orderedIndexI: ",orderedIndex
-call flush (20)
-         ! Use the normal state factor for non-PACS calculations. For PACS
-         !   calculations the initStateFactor is always 1 even though the
-         !   initial core state(s) will have an electron missing.
-         if (clp%stateSet /= 1) then
-            initStateFactor = electronPopulation(orderedIndex) / &
-                  & (kPointWeight(currentKPoint)/real(spin,double))
-         else
-            initStateFactor = 1.0_double
-         endif
-Write (20,*) "InitelectonPop: ",electronPopulation(orderedIndex)
-call flush (20)
-         ! Determine the array index value of the current final (index j)
-         !   spin-kpoint-state as defined by the tempEnergyEigenValues loop
-         !   near the beginning of the population subroutine.
-         orderedIndex = j + inDat%numStates*(spinDirection-1) + &
-               & inDat%numStates*spin*(currentKPoint-1)
-
-write (20,*) "orderedIndexJ: ",orderedIndex
-call flush (20)
-         finStateFactor = 1.0_double - electronPopulation(orderedIndex) / &
-               & (kPointWeight(currentKPoint)/real(spin,double))
-
-Write (20,*) "FinelectonPop: ",electronPopulation(orderedIndex)
-call flush (20)
-write (20,*) "i,j,stateFactors",i,j,initStateFactor,finStateFactor
-call flush (20)
 #ifndef GAMMA
          ! Loop to obtain the wave function times the momentum integral.
          do k = initComponent,finComponent
@@ -1335,8 +1276,8 @@ call flush (20)
             !   sign included in the getIntgResults subroutine for the
             !   momentum matrix. (See notes in that code.)
             transitionProb(k,initialStateIndex,finalStateIndex) = &
-                  & ( real(valeValeXMom,double)**2 + &
-                  & (aimag(valeValeXMom)**2)) * (initStateFactor * finStateFactor)
+                  &  real(valeValeXMom,double)**2 + &
+                  & aimag(valeValeXMom)**2
          enddo
 #else
 
@@ -1357,12 +1298,12 @@ call flush (20)
    ! Determine the weighting effect of this kpoint and include the normalizaion
    !   factor for the gaussian. We will actually be multiplying two Gaussians
    !   together so we need this squared.
-   kPointFactor = ((kPointWeight(currentKPoint)/real(spin,double) / &
-         & (sigmaSqrt2Pi))**2)
+   kPointFactor = kPointWeight(currentKPoint)/real(spin,double) / &
+         & (sigmaSqrt2Pi)**2
+
    ! Now compute the exponential alpha factor which is -1/(2 * sigma^2).
    alphaFactor = -1.0_double / (2.0_double * inDat%sigmaSIGE**2)
-  ! boltz = 8.617332478_double
-  ! ThermalTemp=(((inDat%thermalSigma)*(11604.505))/(27.21138386))
+
    ! Now we fill up the sigmaEAccumulator.  There are two scenarios in which
    !   this may happen, the xyz all at once (xyzComponents==0) case, and the
    !   each axis (x, y, z) one at a time case (xyzComponents/=0). The only
@@ -1415,40 +1356,16 @@ call flush (20)
             !   with e=the current mesh point energy and e1=the current initial
             !   state energy value and e2=the current final state energy value.
             do k = 1, 3
-            !   sigmaEAccumulator(:,k) = sigmaEAccumulator(:,k) + &
-            ! & ((kPointFactor)**2) &
-            ! & * sqrt(pi/(2.0_double * alphaFactor)) &
-            ! & * (exp(alphaFactor * ((energyEigenValues(i,currentKPoint,spinDirection) -&
-            ! & energyEigenValues(j,currentKPoint,spinDirection))**2)/2.0_double)) * transitionProb(k,&
-            ! & initialStateIndex,finalStateIndex)
-!write (20,*)"EEV1: ",energyEigenValues(i,currentKPoint,spinDirection)
-!write (20,*)"EEV2: ",energyEigenValues(j,currentKPoint,spinDirection)
-!write (20,*)"alphaFactor: ",alphaFactor
-!write (20,*)"kPointFactor: ",kPointFactor
-!call flush(20)
-
                sigmaEAccumulator(:,k) = sigmaEAccumulator(:,k) + &
-                     & ((kPointFactor)* exp(alphaFactor * ( &
+                     & kPointFactor * exp(alphaFactor * ( &
                      & (energyScale(:) - energyEigenValues(i,currentKPoint,&
                      & spinDirection))**2 + &
                      & (energyScale(:) - energyEigenValues(j,currentKPoint,&
                      & spinDirection))**2)) * transitionProb(k,&
-                     & initialStateIndex,finalStateIndex))
-write (20,*) "SigeenergyEigenValues: ",energyEigenValues(i,currentKPoint,spinDirection)
-write (20,*) "SigeenergyEigenValues2: ",energyEigenValues(j,currentKPoint,spinDirection)
-write (20,*) "occupiedEnergy: ",occupiedEnergy
-write (20,*) "transitionProb: ",transitionProb(k,initialStateIndex,finalStateIndex)
+                     & initialStateIndex,finalStateIndex)
             enddo
          enddo
       enddo
-    
-                ! do p = 1, numEnergyPoints
-                 !    DcCond= DcCond + (- exp(((energyEigenValues(p,currentKPoint,spinDirection)-occupiedEnergy)/ & 
-                  !   & ((boltz)*(indat%thermalSigma))))/ &
-                   !  & (((boltz)*(indat%thermalSigma))* &
-                    ! & (exp((energyEigenValues(p,currentKPoint,spinDirection)-occupiedEnergy))+1)**2) * &
-                    ! & (sigmaEAccumulator(p,k)))
-                ! enddo
    else
 
       ! Now we create a Gaussin of unit area for each pair of states and
@@ -1468,8 +1385,6 @@ write (20,*) "transitionProb: ",transitionProb(k,initialStateIndex,finalStateInd
 
             ! We don't want double counting or self interactions so we skip the
             !   i>=j cases.
-
-            finalStateIndex = finalStateIndex + 1
             if (i >= j) cycle
 
             ! Increment the index number for the final states. Note that we
@@ -1479,6 +1394,7 @@ write (20,*) "transitionProb: ",transitionProb(k,initialStateIndex,finalStateInd
             !   case, even if we don't use it.  (This note is here because this
             !   was a point of confusion in the past when the code was being
             !   developed.)
+            finalStateIndex = finalStateIndex + 1
 
             ! See notes for the above case.
             sigmaEAccumulator(:,xyzComponents) = &
@@ -1492,23 +1408,7 @@ write (20,*) "transitionProb: ",transitionProb(k,initialStateIndex,finalStateInd
          enddo
       enddo
    endif
-            ! Here we calculate the Final D.C. conductivity given by the
-            ! Kubo-greenwood Formulism. The sigma(E) calculation done above is
-            ! multiplied by Derivative of the Fermi-dirac function at each
-            ! energy point of the energy scale, Then multiplied by the step size
-            ! of the energy scale. This is all accumulated to our final value.
-                 tempFermi = 0.0_double
-                 do q = 1, numEnergyPoints
-                     tempFermi = FermiDerivative(fermiIntgPoints(q), occupiedEnergy, inDat%thermalSigma)
-                     DcCond= DcCond + (tempFermi * &
-                     & (sum(sigmaEAccumulator(q,:))/3.0_double)* &
-                     & (inDat%deltaSIGE))
-write (20,*) "DcCond: ",DcCond
-!write (20,*) "ThermalSigma:", inDat%thermalSigma
-write (20,*) "FermiDerivative is:",tempFermi
-write (20,*) "SumSigmaEaccumulator: ",sum(sigmaEAccumulator(q,:))/3.0_double
-call flush(20)
-                 enddo
+
    ! Print the results during the last KPoint iteration for the last component
    !   or set of components.
    if ((currentKPoint == numKPoints) .and. ((xyzComponents == 0) .or. &
@@ -1540,7 +1440,7 @@ call flush(20)
       !   will perform the averaging later.  We also do not change the units of
       !   the cell volume since that will be accounted for next.)
       conversionFactor = 2 * pi / realCellVolume
-write (20,*) "realcellvolume: ",realCellVolume
+
 
       ! The units of the KGF in a.u. are seen as:
       ! SigmaE = (ET EL) / (M^2 L^3) * (M^2 L^2)/(T^2) * 1/(E^2)
@@ -1560,7 +1460,7 @@ write (20,*) "realcellvolume: ",realCellVolume
       ! This will convert the result from (a.u. 1/T) to (cgs emu 1/s).  Note
       !   that it still needs to be multiplied by 1e+17.
       conversionFactor = conversionFactor / auTime
-write (20,*) "auTime: ",auTime
+
       ! The third step is then to convert the 1/sec in cgs to 1/(ohm m) in
       !   SI.  This can be done with the knowledge that ohm = ET/Q^2 = Js/C^2.
       !   Writing that in cgs esu we have:  (g cm^2 / s^2) s s^2/(g cm^3) = 
@@ -1575,7 +1475,7 @@ write (20,*) "auTime: ",auTime
       !   Note that it still needs to be multiplied by an additional 1e-9.
       !   This creates a total exponent multiplication factor of 1e+8 so far.
       conversionFactor = conversionFactor / lightFactor
-write (20,*) " lightFactor: ",lightFactor
+
       ! Finally, we want to express the result in (micro ohm cm)^-1 which is
       !   equal to (1e-8 ohm m)^-1 = 1e8(ohm m)^-1.  This creates a total
       !   exponent multiplication factor of 1 so we don't have to make any more
@@ -1583,61 +1483,23 @@ write (20,*) " lightFactor: ",lightFactor
 
       ! Adjust the sigmaE to have the correct units.
       sigmaEAccumulator(:,:) = sigmaEAccumulator(:,:) * conversionFactor
-!write (20,*) "conversionFactor: ",conversionFactor
-               !  do p = 1, numEnergyPoints
-               !      DcCond= DcCond + (- exp(((energyEigenValues(p,currentKPoint,spinDirection)-occupiedEnergy)/ & 
-               !      & ((boltz)*(203))))/ &
-               !      & (((boltz)*(203))* &
-               !      & (exp((energyEigenValues(p,currentKPoint,spinDirection)-occupiedEnergy))+1)**2) * &
-               !      & (sigmaEAccumulator(p,k)))
-               !      write (20,*) "exp(energyEigenValues): ",exp((energyEigenValues(p,currentKPoint,spinDirection)))
-               !      write (20,*) "exp(energyEigenValues2): ",(boltz*(203))*&
-               !      & ((exp((energyEigenValues(p,currentKPoint,spinDirection)-&
-               !      & occupiedEnergy)/(boltz*(203)))+1)**2)
-               !      write (20,*) "boltztemp: ",boltz*(203)
-               !      write (20,*) "occupiedEnergy: ",occupiedEnergy
-               !     ! write (20,*) "thermalSigma: ",indat%thermalSigma
-               !  enddo
-        sumval = 0.0
+
       do i = 1, numEnergyPoints
 
          ! Write the averaged total, and the x, y, z components, making sure to
          !   convert the energy scale into eV.
          write (49+spinDirection,fmt="(5e20.8e4)") energyScale(i)*hartree,&
-            & sum(sigmaEAccumulator(i,:))/3.0_double,sigmaEAccumulator(i,:),&
-            & FermiDerivative(energyScale(i),occupiedEnergy,inDat%thermalSigma)    
+            & sum(sigmaEAccumulator(i,:))/3.0_double,sigmaEAccumulator(i,:)
       enddo
 
       ! Accumulate the total electronic contribution to the thermal conductivity.
-      totalSigma = ((sum(sigmaEAccumulator(:,:)) / 3.0_double))
+      totalSigma = sum(sigmaEAccumulator(:,:)) / 3.0_double
       write (20,*) "The total sigma is: ",totalSigma
 
-     ! deallocate (sigmaEAccumulator)
-     ! deallocate (energyScale)
-        DcCond = DcCond * conversionFactor
-    write (20,*) "The Dc Conductivity is: ",DcCond
-   endif
-               ! Here we Compute the The value of the Partial derivative of the
-               ! Fermi-dirac function in respect to what EnergyPoint that we are currently
-               ! evaluating it at. Then evaluate those values on a mesh.
-                 !do p = 1, numEnergyPoints
-                 !      ! do k = 1, 3 
-                 !               FermiDerivative(:) = -( exp((energyScale(:)-occupiedEnergy)/ & 
-                 !               & ((boltz)*(ThermalTemp)))/ &
-                 !               & (((boltz)*(ThermalTemp))* &
-                 !               & (exp((energyScale(:)-occupiedEnergy)/((boltz)*(ThermalTemp)))+1)**2))
-                 !      ! enddo
-                 !enddo
-                ! do q = 1, numEnergyPoints
-                 !    DcCond= DcCond + &
-                  !   & (FermiDerivative(energyScale(q), occupiedEnergy, boltz, ThermalTemp)* &
-                   !  & (sum(sigmaEAccumulator(q,:))/3.0_double)* &
-                    ! & (inDat%deltaSIGE))
-                ! enddo
-   ! write (20,*) "The Dc Conductivity is: ",DcCond
-     !deallocate (FermiDerivative)
       deallocate (sigmaEAccumulator)
-      deallocate (energyScale)    
+      deallocate (energyScale)
+   endif
+
    ! Deallocate unnecessary matrices.
 #ifndef GAMMA
    deallocate (conjWaveMomSum)

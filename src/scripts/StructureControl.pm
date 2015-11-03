@@ -12,8 +12,8 @@ use ElementData;
 use Math::Complex;
 use Math::Trig;
 use Math::MatrixReal;
-use Inline C => 'DATA',
-           NAME => 'StructureControl';
+#use Inline C => 'DATA',
+#           NAME => 'StructureControl';
 
 require Exporter;
 
@@ -3525,14 +3525,14 @@ sub obtainAtomicInteraction
                           $item2XYZ_ref->[$item2][$axis];}
 
          # Calculate the direct distance between the two atoms.
-         $distance = Cdistance($limitDistSqrd,$limitDist,
-               $item1XYZ_ref->[$item1][1],$item1XYZ_ref->[$item1][2],
-               $item1XYZ_ref->[$item1][3],$item2XYZ_ref->[$item2][1],
-               $item2XYZ_ref->[$item2][2],$item2XYZ_ref->[$item2][3]);
+#         $distance = Cdistance($limitDistSqrd,$limitDist,
+#               $item1XYZ_ref->[$item1][1],$item1XYZ_ref->[$item1][2],
+#               $item1XYZ_ref->[$item1][3],$item2XYZ_ref->[$item2][1],
+#               $item2XYZ_ref->[$item2][2],$item2XYZ_ref->[$item2][3]);
 #print STDOUT "$distance\n";
-#         $distance = sqrt($diff[1]*$diff[1] +
-#                          $diff[2]*$diff[2] +
-#                          $diff[3]*$diff[3]);
+         $distance = sqrt($diff[1]*$diff[1] +
+                          $diff[2]*$diff[2] +
+                          $diff[3]*$diff[3]);
 if ($distance == 1000000.0)
    {next;}
 
@@ -4682,88 +4682,88 @@ sub gaussianBroaden
 
 
 1;
-__DATA__
-# Below is stub documentation for this module.
-
-=head1 NAME
-
-StructureControl - Perl extension for reading and computing atomic structure
-information.
-
-=head1 SYNOPSIS
-
-  use StructureControl;
-
-  &readGulp();
-  &readPDB();
-  &readABC();
-  &abcAlphaBetaGamma();
-  &getDirectXYZ();
-  
-
-
-=head1 DESCRIPTION
-
-
-
-=head2 EXPORT
-
-None by default.
-
-
-
-=head1 SEE ALSO
-
-No other related documents yet.
-
-There is presently no mailing list for this module.
-
-There is presently no website for this module.
-
-=head1 AUTHOR
-
-Paul Rulis, E<lt>rulisp@umkc.eduE<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (C) 2007 by Paul Rulis
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.2 or,
-at your option, any later version of Perl 5 you may have available.
-
-
-=cut
-
-__C__
-
-double Cdistance(double limitDistSqrd, double limitDist,
-                 double p1x, double p1y, double p1z,
-                 double p2x, double p2y, double p2z)
-{
-   double diff[] = {p2x-p1x, p2y-p1y, p2z-p1z};
-   double r;
-   int i;
-   int tooFar;
-
-   tooFar = 0;
-   for (i=0;i<=2;i++)
-   {
-      if (diff[i] > limitDist)
-      {
-         tooFar = 1;
-         break;
-      }
-   }
-
-   if (tooFar)
-      {return 1000000.0;}
-   else
-   {
-      r = diff[0]*diff[0] + diff[1]*diff[1] + diff[2]*diff[2];
-      if (r<limitDistSqrd)
-         {return sqrt(r);}
-      else
-         {return 1000000.0;}
-   }
-}
+#__DATA__
+## Below is stub documentation for this module.
+#
+#=head1 NAME
+#
+#StructureControl - Perl extension for reading and computing atomic structure
+#information.
+#
+#=head1 SYNOPSIS
+#
+#  use StructureControl;
+#
+#  &readGulp();
+#  &readPDB();
+#  &readABC();
+#  &abcAlphaBetaGamma();
+#  &getDirectXYZ();
+#  
+#
+#
+#=head1 DESCRIPTION
+#
+#
+#
+#=head2 EXPORT
+#
+#None by default.
+#
+#
+#
+#=head1 SEE ALSO
+#
+#No other related documents yet.
+#
+#There is presently no mailing list for this module.
+#
+#There is presently no website for this module.
+#
+#=head1 AUTHOR
+#
+#Paul Rulis, E<lt>rulisp@umkc.eduE<gt>
+#
+#=head1 COPYRIGHT AND LICENSE
+#
+#Copyright (C) 2007 by Paul Rulis
+#
+#This library is free software; you can redistribute it and/or modify
+#it under the same terms as Perl itself, either Perl version 5.8.2 or,
+#at your option, any later version of Perl 5 you may have available.
+#
+#
+#=cut
+#
+#__C__
+#
+#double Cdistance(double limitDistSqrd, double limitDist,
+#                 double p1x, double p1y, double p1z,
+#                 double p2x, double p2y, double p2z)
+#{
+#   double diff[] = {p2x-p1x, p2y-p1y, p2z-p1z};
+#   double r;
+#   int i;
+#   int tooFar;
+#
+#   tooFar = 0;
+#   for (i=0;i<=2;i++)
+#   {
+#      if (diff[i] > limitDist)
+#      {
+#         tooFar = 1;
+#         break;
+#      }
+#   }
+#
+#   if (tooFar)
+#      {return 1000000.0;}
+#   else
+#   {
+#      r = diff[0]*diff[0] + diff[1]*diff[1] + diff[2]*diff[2];
+#      if (r<limitDistSqrd)
+#         {return sqrt(r);}
+#      else
+#         {return 1000000.0;}
+#   }
+#}
