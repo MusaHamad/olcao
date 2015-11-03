@@ -1149,9 +1149,6 @@ subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection)
    real    (kind=double)                                 :: valeValeXMomGamma
 #endif
 
-   real (kind=double), allocatable, dimension(:) :: fermiIntgPoints
-   real (kind=double) :: tempFermi
-
    ! Compute the number of energy points to evaluate.
    numEnergyPoints = int((maxTransEnSIGE * 2.0_double) / deltaSIGE + 1)
 
@@ -1183,13 +1180,6 @@ subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection)
          energyScale(i) = -maxTransEnSIGE + deltaSIGE * (i-1)
       enddo
    endif
-
-   allocate(fermiIntgPoints(((occupiedEnergy+maxTransEnSIGE)-(occupiedEnergy-maxTransEnSIGE))/deltaSIGE))
-   do i=1,size(fermiIntgPoints)
-      fermiIntgPoints(i) = (occupiedEnergy-maxTransEnSIGE) + deltaSIGE * (i-1)
-write (20,*) "fermiIntgPoints: ", fermiIntgPoints(i)
-call flush(20)
-   enddo
 
    ! Determine the range of components (xyz) that should be considered.
    if (xyzComponents == 0) then
@@ -1497,8 +1487,8 @@ write (20,*) "transitionProb: ",transitionProb(k,initialStateIndex,finalStateInd
             ! of the energy scale. This is all accumulated to our final value.
                  tempFermi = 0.0_double
                  do q = 1, numEnergyPoints
-                     tempFermi = FermiDerivative(fermiIntgPoints(q), occupiedEnergy, thermalSigma)
-                     DcCond= DcCond + (tempFermi * &
+                     DcCond= DcCond +  &
+                     & (FermiDerivative(energyScale(q), occupiedEnergy, thermalSigma) * &
                      & (sum(sigmaEAccumulator(q,:))/3.0_double)* &
                      & (deltaSIGE))
 !write (20,*) "DcCond: ",DcCond
