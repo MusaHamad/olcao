@@ -1091,7 +1091,10 @@ subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection)
    use O_Constants, only: dim3, pi, auTime, lightFactor, hartree
    use O_KPoints, only: numKPoints, kPointWeight
    use O_SortSubs
-   use O_Input, only: maxTransEnSIGE, deltaSIGE, sigmaSIGE
+   use O_Input, only: maxTransEnSIGE, deltaSIGE, sigmaSIGE, numStates, &
+                      & thermalSigma
+   use O_Populate, only: occupiedEnergy, electronPopulation
+   use O_MathSubs, only: FermiDerivative
    use O_Lattice, only: realCellVolume
    use O_Potential, only: spin
    use O_AtomicSites, only: valeDim
@@ -1181,9 +1184,9 @@ subroutine computeSigmaE (currentKPoint,xyzComponents,spinDirection)
       enddo
    endif
 
-   allocate(fermiIntgPoints(((occupiedEnergy+inDat%maxTransEnSIGE)-(occupiedEnergy-inDat%maxTransEnSIGE))/inDat%deltaSIGE))
+   allocate(fermiIntgPoints(((occupiedEnergy+maxTransEnSIGE)-(occupiedEnergy-maxTransEnSIGE))/deltaSIGE))
    do i=1,size(fermiIntgPoints)
-      fermiIntgPoints(i) = (occupiedEnergy-inDat%maxTransEnSIGE) + inDat%deltaSIGE * (i-1)
+      fermiIntgPoints(i) = (occupiedEnergy-maxTransEnSIGE) + deltaSIGE * (i-1)
 write (20,*) "fermiIntgPoints: ", fermiIntgPoints(i)
 call flush(20)
    enddo
@@ -1288,8 +1291,8 @@ call flush(20)
          !   i>=j cases.
          if (i >= j) cycle
 
-         orderedIndex = i + inDat%numStates*(spinDirection-1) + &
-               & inDat%numStates*spin*(currentKPoint-1)
+         orderedIndex = i + numStates*(spinDirection-1) + &
+               & numStates*spin*(currentKPoint-1)
 
 write (20,*) "orderedIndexI: ",orderedIndex
 call flush (20)
@@ -1307,8 +1310,8 @@ call flush (20)
          ! Determine the array index value of the current final (index j)
          !   spin-kpoint-state as defined by the tempEnergyEigenValues loop
          !   near the beginning of the population subroutine.
-         orderedIndex = j + inDat%numStates*(spinDirection-1) + &
-               & inDat%numStates*spin*(currentKPoint-1)
+         orderedIndex = j + numStates*(spinDirection-1) + &
+               & numStates*spin*(currentKPoint-1)
 
 write (20,*) "orderedIndexJ: ",orderedIndex
 call flush (20)
@@ -1494,12 +1497,12 @@ write (20,*) "transitionProb: ",transitionProb(k,initialStateIndex,finalStateInd
             ! of the energy scale. This is all accumulated to our final value.
                  tempFermi = 0.0_double
                  do q = 1, numEnergyPoints
-                     tempFermi = FermiDerivative(fermiIntgPoints(q), occupiedEnergy, inDat%thermalSigma)
+                     tempFermi = FermiDerivative(fermiIntgPoints(q), occupiedEnergy, thermalSigma)
                      DcCond= DcCond + (tempFermi * &
                      & (sum(sigmaEAccumulator(q,:))/3.0_double)* &
-                     & (inDat%deltaSIGE))
+                     & (deltaSIGE))
 !write (20,*) "DcCond: ",DcCond
-!write (20,*) "ThermalSigma:", inDat%thermalSigma
+!write (20,*) "ThermalSigma:", thermalSigma
 write (20,*) "FermiDerivative is:",tempFermi
 write (20,*) "SumSigmaEaccumulator: ",sum(sigmaEAccumulator(q,:))/3.0_double
 call flush(20)
@@ -1599,7 +1602,7 @@ write (20,*) " lightFactor: ",lightFactor
          !   convert the energy scale into eV.
          write (49+spinDirection,fmt="(5e20.8e4)") energyScale(i)*hartree,&
             & sum(sigmaEAccumulator(i,:))/3.0_double,sigmaEAccumulator(i,:),&
-            & FermiDerivative(energyScale(i),occupiedEnergy,inDat%thermalSigma)    
+            & FermiDerivative(energyScale(i),occupiedEnergy,thermalSigma)    
       enddo
 
       ! Accumulate the total electronic contribution to the thermal conductivity.
@@ -1626,7 +1629,7 @@ write (20,*) " lightFactor: ",lightFactor
                  !    DcCond= DcCond + &
                   !   & (FermiDerivative(energyScale(q), occupiedEnergy, boltz, ThermalTemp)* &
                    !  & (sum(sigmaEAccumulator(q,:))/3.0_double)* &
-                    ! & (inDat%deltaSIGE))
+                    ! & (deltaSIGE))
                 ! enddo
    ! write (20,*) "The Dc Conductivity is: ",DcCond
      !deallocate (FermiDerivative)
