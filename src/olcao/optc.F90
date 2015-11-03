@@ -1498,7 +1498,7 @@ write (20,*) "transitionProb: ",transitionProb(k,initialStateIndex,finalStateInd
                      DcCond= DcCond + (tempFermi * &
                      & (sum(sigmaEAccumulator(q,:))/3.0_double)* &
                      & (inDat%deltaSIGE))
-write (20,*) "DcCond: ",DcCond
+!write (20,*) "DcCond: ",DcCond
 !write (20,*) "ThermalSigma:", inDat%thermalSigma
 write (20,*) "FermiDerivative is:",tempFermi
 write (20,*) "SumSigmaEaccumulator: ",sum(sigmaEAccumulator(q,:))/3.0_double
