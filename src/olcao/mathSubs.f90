@@ -186,7 +186,7 @@ end function stepFunction
 !- e^[E-occ/kT]/kT[e^[E-occ/kT]+1]^2
 
 
-function FermiDerivative (energyPoint, occupiedEnergy, thermalSigma)
+function FermiDerivative (energyPoint, thermalSigma)
    use O_Kinds
    implicit none
 
@@ -195,18 +195,18 @@ function FermiDerivative (energyPoint, occupiedEnergy, thermalSigma)
 
    ! Define passed parameters  
    real (kind=double), intent(in) :: energyPoint 
-   real (kind=double), intent(in) :: occupiedEnergy
+  ! real (kind=double), intent(in) :: occupiedEnergy
    real (kind=double), intent(in) :: thermalSigma
    ! Define local variables
    !real (kind=double) :: boltz = 8.82E-12
 
-   FermiDerivative = -(exp((energyPoint-occupiedEnergy)/ &
+   FermiDerivative = -(exp((energyPoint)/ &
                                 & (thermalSigma))/ &
                                 & ((thermalSigma)* &
-                                &(exp((energyPoint-occupiedEnergy)/(thermalSigma))+1.0_double)**2.0_double))
+                                &(exp((energyPoint)/(thermalSigma))+1.0_double)**2.0_double))
                        
-write (20,*) "Nummerator: ", exp((energyPoint-occupiedEnergy)/thermalSigma)
-write (20,*) "Denom: ",1.0_double/((exp((energyPoint-occupiedEnergy)/thermalSigma))+1.0_double)**2.0_double
+write (20,*) "Nummerator: ", exp((energyPoint)/thermalSigma)
+write (20,*) "Denom: ",1.0_double/((exp((energyPoint)/thermalSigma))+1.0_double)**2.0_double
 !write (20,*) "energyPoint: ", energyPoint
 !write (20,*) "occupiedEnergy is: ", occupiedEnergy
 !write (20,*) "thermalSigma: ", thermalSigma

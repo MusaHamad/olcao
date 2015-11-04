@@ -1485,15 +1485,14 @@ write (20,*) "transitionProb: ",transitionProb(k,initialStateIndex,finalStateInd
             ! multiplied by Derivative of the Fermi-dirac function at each
             ! energy point of the energy scale, Then multiplied by the step size
             ! of the energy scale. This is all accumulated to our final value.
-                 tempFermi = 0.0_double
                  do q = 1, numEnergyPoints
                      DcCond= DcCond +  &
-                     & (FermiDerivative(energyScale(q), occupiedEnergy, thermalSigma) * &
+                     & (FermiDerivative(energyScale(q), thermalSigma) * &
                      & (sum(sigmaEAccumulator(q,:))/3.0_double)* &
                      & (deltaSIGE))
 !write (20,*) "DcCond: ",DcCond
 !write (20,*) "ThermalSigma:", thermalSigma
-write (20,*) "FermiDerivative is:",tempFermi
+!write (20,*) "FermiDerivative is:", varHere
 write (20,*) "SumSigmaEaccumulator: ",sum(sigmaEAccumulator(q,:))/3.0_double
 call flush(20)
                  enddo
@@ -1590,9 +1589,9 @@ write (20,*) " lightFactor: ",lightFactor
 
          ! Write the averaged total, and the x, y, z components, making sure to
          !   convert the energy scale into eV.
-         write (49+spinDirection,fmt="(5e20.8e4)") energyScale(i)*hartree,&
-            & sum(sigmaEAccumulator(i,:))/3.0_double,sigmaEAccumulator(i,:),&
-            & FermiDerivative(energyScale(i),occupiedEnergy,thermalSigma)    
+         write (49+spinDirection,fmt="(5e20.8e4)") energyScale(i)*hartree, &
+            & sum(sigmaEAccumulator(i,:))/3.0_double,sigmaEAccumulator(i,:), &
+            & FermiDerivative(energyScale(i),thermalSigma)    
       enddo
 
       ! Accumulate the total electronic contribution to the thermal conductivity.
